@@ -1,34 +1,25 @@
 mod types;
 
-use types::*;
+pub use types::*;
 
-pub enum Instruction {
-    OpImm(IType),
-    Lui(UType),
-    AuiPc(UType),
-    Op(RType),
-    Jal(JType),
-    JalR(IType),
-    Branch(BType),
-    Load(IType),
-    Store(SType),
-}
+pub const OPCODE_MASK: u32 = 0b1111111;
 
-impl Instruction {
-    pub fn decode(data: u32) -> Option<Self> {
-        let opcode = data & 0b1111111;
-        Some(match opcode {
-            0b0010011 => Self::OpImm(IType::decode(data)),
-            0b0110111 => Self::Lui(UType::decode(data)),
-            0b0010111 => Self::AuiPc(UType::decode(data)),
-            0b0110011 => Self::Op(RType::decode(data)),
-            0b1101111 => Self::Jal(JType::decode(data)),
-            0b1100111 => Self::JalR(IType::decode(data)),
-            0b1100011 => Self::Branch(BType::decode(data)),
-            0b0000011 => Self::Load(IType::decode(data)),
-            0b0100011 => Self::Store(SType::decode(data)),
+pub const OPCODE_OPIMM: u32 = 0b0010011;
+pub const OPCODE_LUI: u32 = 0b0110111;
+pub const OPCODE_AUIPC: u32 = 0b0010111;
+pub const OPCODE_OP: u32 = 0b0110011;
+pub const OPCODE_JAL: u32 = 0b1101111;
+pub const OPCODE_JALR: u32 = 0b1100111;
+pub const OPCODE_BRANCH: u32 = 0b1100011;
+pub const OPCODE_LOAD: u32 = 0b0000011;
+pub const OPCODE_STORE: u32 = 0b0100011;
 
-            _ => return None,
-        })
-    }
-}
+pub type TypeOpImm = IType;
+pub type TypeLui = UType;
+pub type TypeAuiPc = UType;
+pub type TypeOp = RType;
+pub type TypeJal = JType;
+pub type TypeJalR = IType;
+pub type TypeBranch = BType;
+pub type TypeLoad = IType;
+pub type TypeStore = SType;

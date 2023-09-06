@@ -1,14 +1,15 @@
-use rvcore::{Base, Extension, Instruction};
+use rvcore::{
+    ins::{TypeOp, OPCODE_MASK, OPCODE_OP},
+    Base, Extension,
+};
 
 pub struct RvM;
 
 impl Extension<i32, ()> for RvM {
-    fn execute<B: Base<i32>>(&mut self, ins: &Instruction, base: &mut B) -> Option<()> {
-        match ins {
-            Instruction::OpImm(_) => return None,
-            Instruction::Lui(_) => return None,
-            Instruction::AuiPc(_) => return None,
-            Instruction::Op(data) => {
+    fn execute<B: Base<i32>>(&mut self, ins: u32, base: &mut B) -> Option<()> {
+        match ins & OPCODE_MASK {
+            OPCODE_OP => {
+                let data = TypeOp::decode(ins);
                 let rs1 = base.get(data.rs1 as usize);
                 let rs2 = base.get(data.rs2 as usize);
                 let value = match (data.funct7, data.funct3) {
@@ -25,11 +26,8 @@ impl Extension<i32, ()> for RvM {
 
                 base.set(data.rd as usize, value);
             }
-            Instruction::Jal(_) => return None,
-            Instruction::JalR(_) => return None,
-            Instruction::Branch(_) => return None,
-            Instruction::Load(_) => return None,
-            Instruction::Store(_) => return None,
+
+            _ => return None,
         }
 
         Some(())

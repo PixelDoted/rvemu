@@ -1,7 +1,5 @@
-mod ins;
+pub mod ins;
 pub mod util;
-
-pub use ins::Instruction;
 
 pub type QUADWORD = i128;
 pub type DOUBLEWORD = i64;
@@ -17,7 +15,7 @@ pub trait Base<I> {
     /// Attempts to execute an instruction  
     /// Returns None if the instruction isn't supported
     #[must_use]
-    fn execute(&mut self, ins: &Instruction, data: &mut Self::DATA) -> Option<()>;
+    fn execute(&mut self, ins: u32, data: &mut Self::DATA) -> Option<()>;
 
     /// Sets the value in register `i`
     fn set(&mut self, i: usize, value: I);
@@ -30,17 +28,17 @@ pub trait Extension<T, I> {
     /// Attempts to execute an instruction
     /// Returns None if the instruction isn't supported
     #[must_use]
-    fn execute<B: Base<T>>(&mut self, ins: &Instruction, base: &mut B) -> Option<()>;
+    fn execute<B: Base<T>>(&mut self, ins: u32, base: &mut B) -> Option<()>;
 
     /// Sets the value in register `i`  
     /// if this extension has registers
-    fn set(&mut self, i: usize, value: T) {
+    fn set(&mut self, _i: usize, _value: T) {
         unimplemented!("This extension doesn't have registers");
     }
 
     /// Gets the value is register `i`  
     /// if this extension has registers
-    fn get(&self, i: usize) -> T {
+    fn get(&self, _i: usize) -> T {
         unimplemented!("This extension doesn't have registers");
     }
 }

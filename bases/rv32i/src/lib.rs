@@ -1,8 +1,14 @@
 mod memory;
 
 pub use memory::Memory;
-use rvcore::Base;
-use rvcore::Instruction;
+use rvcore::{
+    ins::{
+        TypeAuiPc, TypeBranch, TypeJal, TypeJalR, TypeLoad, TypeLui, TypeOp, TypeOpImm, TypeStore,
+        OPCODE_AUIPC, OPCODE_BRANCH, OPCODE_JAL, OPCODE_JALR, OPCODE_LOAD, OPCODE_LUI, OPCODE_MASK,
+        OPCODE_OP, OPCODE_OPIMM, OPCODE_STORE,
+    },
+    Base,
+};
 
 #[derive(Default, Debug)]
 pub struct RV32I {
@@ -37,9 +43,10 @@ impl Base<i32> for RV32I {
 
     // ---- Execution ----
 
-    fn execute(&mut self, ins: &Instruction, memory: &mut Memory) -> Option<()> {
-        match ins {
-            Instruction::OpImm(data) => {
+    fn execute(&mut self, ins: u32, memory: &mut Memory) -> Option<()> {
+        match ins & OPCODE_MASK {
+            OPCODE_OPIMM => {
+                let data = TypeOpImm::decode(ins);
                 let rs1 = self.get(data.rs1 as usize);
                 let imm11_0 = data.imm;
                 let value = match data.funct3 {
@@ -55,14 +62,17 @@ impl Base<i32> for RV32I {
 
                 self.set(data.rd as usize, value);
             }
-            Instruction::Lui(data) => {
+            OPCODE_LUI => {
+                let data = TypeLui::decode(ins);
                 self.set(data.rd as usize, data.imm << 12);
             }
-            Instruction::AuiPc(data) => {
+            OPCODE_AUIPC => {
+                let data = TypeAuiPc::decode(ins);
                 let value = (data.imm << 12) + self.pc - 4;
                 self.set(data.rd as usize, value);
             }
-            Instruction::Op(data) => {
+            OPCODE_OP => {
+                let data = TypeOp::decode(ins);
                 let rs1 = self.get(data.rs1 as usize);
                 let rs2 = self.get(data.rs2 as usize);
                 let value = match (data.funct7, data.funct3) {
@@ -82,16 +92,19 @@ impl Base<i32> for RV32I {
 
                 self.set(data.rd as usize, value);
             }
-            Instruction::Jal(data) => {
+            OPCODE_JAL => {
+                let data = TypeJal::decode(ins);
                 self.set(data.rd as usize, self.pc);
                 self.pc = self.pc - 4 + (data.imm >> 1);
             }
-            Instruction::JalR(data) => {
+            OPCODE_JALR => {
+                let data = TypeJalR::decode(ins);
                 let rs1 = self.get(data.rs1 as usize) + data.imm;
                 self.set(data.rd as usize, self.pc);
                 self.pc = self.pc - 4 + rs1;
             }
-            Instruction::Branch(data) => {
+            OPCODE_BRANCH => {
+                let data = TypeBranch::decode(ins);
                 let rs1 = self.get(data.rs1 as usize);
                 let rs2 = self.get(data.rs2 as usize);
                 let result = match data.funct3 {
@@ -109,7 +122,8 @@ impl Base<i32> for RV32I {
                     self.pc = self.pc - 4 + data.imm;
                 }
             }
-            Instruction::Load(data) => {
+            OPCODE_LOAD => {
+                let data = TypeLoad::decode(ins);
                 let rs1 = (self.get(data.rs1 as usize) + data.imm) as usize;
                 let value = match data.funct3 {
                     0 => memory.load_byte(rs1),      // lb
@@ -123,7 +137,8 @@ impl Base<i32> for RV32I {
 
                 self.set(data.rd as usize, value);
             }
-            Instruction::Store(data) => {
+            OPCODE_STORE => {
+                let data = TypeStore::decode(ins);
                 let rs1 = (self.get(data.rs1 as usize) + data.imm) as usize;
                 let rs2 = self.get(data.rs2 as usize);
                 match data.funct3 {
@@ -134,6 +149,8 @@ impl Base<i32> for RV32I {
                     _ => return None,
                 }
             }
+
+            _ => return None,
         }
 
         Some(())

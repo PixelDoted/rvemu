@@ -9,24 +9,19 @@ fn main() {
 
     memory.store_word(0, 0x00130293u32 as i32); // addi x5, x6, 1
     memory.store_word(4, 0x00128313u32 as i32); // addi x6, x5, 1
-    memory.store_word(8, 0xff1ff06fu32 as i32); // jal x0, -81
+    memory.store_word(8, 0xff1ff06fu32 as i32); // jal x0, -8
 
     loop {
         println!("fetch");
         let pc = base.fetch();
-        let word = memory.load_word(pc as usize);
+        let instruction = memory.load_word(pc as usize) as u32;
 
-        if let Some(instruction) = rvcore::Instruction::decode(word as u32) {
-            println!("execute");
+        println!("execute");
+        let result = base.execute(instruction, &mut memory).is_some()
+            || rv_m.execute(instruction, &mut base).is_some();
 
-            let result = base.execute(&instruction, &mut memory).is_some()
-                || rv_m.execute(&instruction, &mut base).is_some();
-
-            if !result {
-                eprintln!("instruction not supported");
-            }
-        } else {
-            panic!("unsupported opcode");
+        if !result {
+            eprintln!("instruction not supported");
         }
 
         std::thread::sleep(std::time::Duration::from_millis(1000));
