@@ -1,4 +1,6 @@
-use rvcore::types::*;
+mod types;
+
+use types::*;
 
 pub enum Instruction {
     OpImm(IType),

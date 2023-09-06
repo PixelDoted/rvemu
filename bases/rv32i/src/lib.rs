@@ -1,9 +1,8 @@
-mod ins;
 mod memory;
 
-use ins::Instruction;
 pub use memory::Memory;
 use rvcore::Base;
+use rvcore::Instruction;
 
 #[derive(Default, Debug)]
 pub struct RV32I {
@@ -11,7 +10,11 @@ pub struct RV32I {
     pc: i32,
 }
 
-impl Base<i32, Memory> for RV32I {
+impl Base<i32> for RV32I {
+    type DATA = Memory;
+
+    // ---- Fetch ----
+
     fn fetch(&mut self) -> i32 {
         let pc = self.pc;
         self.pc += 4;
@@ -34,8 +37,7 @@ impl Base<i32, Memory> for RV32I {
 
     // ---- Execution ----
 
-    fn execute(&mut self, ins: u32, memory: &mut Memory) -> Option<()> {
-        let ins = Instruction::decode(ins)?;
+    fn execute(&mut self, ins: &Instruction, memory: &mut Memory) -> Option<()> {
         match ins {
             Instruction::OpImm(data) => {
                 let rs1 = self.get(data.rs1 as usize);

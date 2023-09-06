@@ -2,9 +2,9 @@
 resolver = "2"
 members = [
     "rvcore",
+    
     "bases/*",
     "extensions/*",
+
     "executors/*",
-    "extensions/rv32m",
-    "executors/gui",
 ]

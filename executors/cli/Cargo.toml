@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 rvcore = { path = "../../rvcore" }
 rv32i = { path = "../../bases/rv32i" }
+rv_m = { path = "../../extensions/rv_m" }
