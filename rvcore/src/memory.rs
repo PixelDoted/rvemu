@@ -1,4 +1,4 @@
-use rvcore::util::sign_extend;
+use crate::util::sign_extend;
 
 pub struct Memory {
     inner: Vec<u8>,

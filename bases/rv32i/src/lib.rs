@@ -1,13 +1,10 @@
-mod memory;
-
-pub use memory::Memory;
 use rvcore::{
     ins::{
         TypeAuiPc, TypeBranch, TypeJal, TypeJalR, TypeLoad, TypeLui, TypeOp, TypeOpImm, TypeStore,
         OPCODE_AUIPC, OPCODE_BRANCH, OPCODE_JAL, OPCODE_JALR, OPCODE_LOAD, OPCODE_LUI, OPCODE_MASK,
         OPCODE_OP, OPCODE_OPIMM, OPCODE_STORE,
     },
-    Base,
+    Base, Memory, Volatile,
 };
 
 #[derive(Default, Debug)]
@@ -16,19 +13,7 @@ pub struct RV32I {
     pc: i32,
 }
 
-impl Base<i32> for RV32I {
-    type DATA = Memory;
-
-    // ---- Fetch ----
-
-    fn fetch(&mut self) -> i32 {
-        let pc = self.pc;
-        self.pc += 4;
-        pc
-    }
-
-    // ---- Register ----
-
+impl Volatile<i32> for RV32I {
     fn set(&mut self, i: usize, value: i32) {
         if i == 0 {
             return;
@@ -40,10 +25,20 @@ impl Base<i32> for RV32I {
     fn get(&self, i: usize) -> i32 {
         self.registers[i]
     }
+}
+
+impl Base<i32> for RV32I {
+    type DATA = Memory;
+
+    // ---- Fetch ----
+    fn fetch(&mut self) -> i32 {
+        let pc = self.pc;
+        self.pc += 4;
+        pc
+    }
 
     // ---- Execution ----
-
-    fn execute(&mut self, ins: u32, memory: &mut Memory) -> Option<()> {
+    fn execute(&mut self, ins: u32, memory: &mut Self::DATA) -> Option<()> {
         match ins & OPCODE_MASK {
             OPCODE_OPIMM => {
                 let data = TypeOpImm::decode(ins);

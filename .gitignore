@@ -1,3 +1,3 @@
 target/
 Cargo.lock
-riscv-spec-*.pdf
+riscv-*.pdf

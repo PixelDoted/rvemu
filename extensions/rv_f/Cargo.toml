@@ -1,5 +1,5 @@
 [package]
-name = "rvcli"
+name = "rv_f"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,5 +8,3 @@ edition = "2021"
 [dependencies]
 rvcore = { path = "../../rvcore" }
 rv32i = { path = "../../bases/rv32i" }
-rv_m = { path = "../../extensions/rv_m" }
-rv_f = { path = "../../extensions/rv_f" }
