@@ -10,15 +10,13 @@ pub type HALFWORLD = i16;
 pub use memory::Memory;
 
 pub trait Base<T>: Volatile<T> {
-    type DATA;
-
     /// Fetches the current `program counter`
     fn fetch(&mut self) -> T;
 
     /// Attempts to execute an instruction  
     /// Returns None if the instruction isn't supported
     #[must_use]
-    fn execute(&mut self, ins: u32, data: &mut Self::DATA) -> Option<()>;
+    fn execute(&mut self, ins: u32, memory: &mut Memory) -> Option<()>;
 }
 
 pub trait Extension<D> {

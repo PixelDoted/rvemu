@@ -2,9 +2,8 @@
 resolver = "2"
 members = [
     "rvcore",
-    
     "bases/*",
     "extensions/*",
-
     "executors/*",
+    "extensions/rv_zicsr",
 ]

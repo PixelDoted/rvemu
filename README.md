@@ -1,6 +1,11 @@
 # RVEmu
 A risc-v emulator
 
+## TODO
+`rv32i`: `fence` `ecall` `ebreak`  
+`rv_f`  
+`rv_zicsr`  
+
 ## References
 https://github.com/riscv/riscv-opcodes  
 https://en.wikipedia.org/wiki/RISC-V  

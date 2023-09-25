@@ -11,7 +11,6 @@ pub struct RV32FData<'a> {
 #[derive(Default)]
 pub struct RV32F {
     registers: [f32; 32],
-    csr: u32,
 }
 
 impl<'a> Extension<RV32FData<'a>> for RV32F {

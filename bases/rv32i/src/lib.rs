@@ -28,8 +28,6 @@ impl Volatile<i32> for RV32I {
 }
 
 impl Base<i32> for RV32I {
-    type DATA = Memory;
-
     // ---- Fetch ----
     fn fetch(&mut self) -> i32 {
         let pc = self.pc;
@@ -38,7 +36,7 @@ impl Base<i32> for RV32I {
     }
 
     // ---- Execution ----
-    fn execute(&mut self, ins: u32, memory: &mut Self::DATA) -> Option<()> {
+    fn execute(&mut self, ins: u32, memory: &mut Memory) -> Option<()> {
         match ins & OPCODE_MASK {
             OPCODE_OPIMM => {
                 let data = TypeOpImm::decode(ins);
