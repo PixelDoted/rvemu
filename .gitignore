@@ -1,3 +1,9 @@
+# Cargo
 target/
 Cargo.lock
+
+# VSCode
+.vscode/
+
+# Risc-V PDF's
 riscv-*.pdf
