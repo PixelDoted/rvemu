@@ -1,16 +1,38 @@
+use std::fmt::Debug;
+
 use rvcore::{
+    bus::Bus,
     ins::{
-        TypeAuiPc, TypeBranch, TypeJal, TypeJalR, TypeLoad, TypeLui, TypeOp, TypeOpImm, TypeStore,
-        OPCODE_AUIPC, OPCODE_BRANCH, OPCODE_JAL, OPCODE_JALR, OPCODE_LOAD, OPCODE_LUI, OPCODE_MASK,
-        OPCODE_OP, OPCODE_OPIMM, OPCODE_STORE,
+        TypeAuiPc, TypeBranch, TypeJal, TypeJalR, TypeLoad, TypeLui, TypeMiscMem, TypeOp,
+        TypeOpImm, TypeStore, TypeSystem, OPCODE_AUIPC, OPCODE_BRANCH, OPCODE_JAL, OPCODE_JALR,
+        OPCODE_LOAD, OPCODE_LUI, OPCODE_MASK, OPCODE_MISCMEM, OPCODE_OP, OPCODE_OPIMM,
+        OPCODE_STORE,
     },
-    Base, Memory, Volatile,
+    Base, EResult, Volatile,
 };
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct RV32I {
     registers: [i32; 32],
     pc: i32,
+    bus: Bus,
+}
+
+impl RV32I {
+    pub fn new(bus: Bus) -> Self {
+        let mut registers = [0i32; 32];
+        registers[2] = bus.dram.size() as i32;
+
+        Self {
+            registers,
+            pc: 0,
+            bus,
+        }
+    }
+
+    pub fn bus(&mut self) -> &mut Bus {
+        &mut self.bus
+    }
 }
 
 impl Volatile<i32> for RV32I {
@@ -30,13 +52,13 @@ impl Volatile<i32> for RV32I {
 impl Base<i32> for RV32I {
     // ---- Fetch ----
     fn fetch(&mut self) -> i32 {
-        let pc = self.pc;
+        let value = self.bus.load(self.pc as usize, 32);
         self.pc += 4;
-        pc
+        value as i32
     }
 
     // ---- Execution ----
-    fn execute(&mut self, ins: u32, memory: &mut Memory) -> Option<()> {
+    fn execute(&mut self, ins: u32) -> EResult {
         match ins & OPCODE_MASK {
             OPCODE_OPIMM => {
                 let data = TypeOpImm::decode(ins);
@@ -50,7 +72,7 @@ impl Base<i32> for RV32I {
                     6 => rs1 | imm11_0,                            // ori
                     7 => rs1 & imm11_0,                            // andi
 
-                    _ => return None,
+                    _ => return EResult::NotFound,
                 };
 
                 self.set(data.rd as usize, value);
@@ -80,7 +102,7 @@ impl Base<i32> for RV32I {
                     (0, 6) => rs1 | rs2,                             // or
                     (0, 7) => rs1 & rs2,                             // and
 
-                    _ => return None,
+                    _ => return EResult::NotFound,
                 };
 
                 self.set(data.rd as usize, value);
@@ -108,7 +130,7 @@ impl Base<i32> for RV32I {
                     6 => (rs1 as u32) < (rs2 as u32),  // bltu
                     7 => (rs1 as u32) >= (rs2 as u32), // bgeu
 
-                    _ => return None,
+                    _ => return EResult::NotFound,
                 };
 
                 if result {
@@ -118,14 +140,16 @@ impl Base<i32> for RV32I {
             OPCODE_LOAD => {
                 let data = TypeLoad::decode(ins);
                 let rs1 = (self.get(data.rs1 as usize) + data.imm) as usize;
-                let value = match data.funct3 {
-                    0 => memory.load_byte(rs1),      // lb
-                    1 => memory.load_halfword(rs1),  // lh
-                    2 => memory.load_word(rs1),      // lw
-                    4 => memory.load_ubyte(rs1),     // lbu
-                    5 => memory.load_uhalfword(rs1), // lhu
 
-                    _ => return None,
+                let bus = self.bus();
+                let value = match data.funct3 {
+                    0 => bus.load(rs1, 8) as i8 as i32,   // lb
+                    1 => bus.load(rs1, 16) as i16 as i32, // lh
+                    2 => bus.load(rs1, 32) as i32,        // lw
+                    4 => bus.load(rs1, 8) as i32,         // lbu
+                    5 => bus.load(rs1, 16) as i32,        // lhu
+
+                    _ => return EResult::NotFound,
                 };
 
                 self.set(data.rd as usize, value);
@@ -134,18 +158,62 @@ impl Base<i32> for RV32I {
                 let data = TypeStore::decode(ins);
                 let rs1 = (self.get(data.rs1 as usize) + data.imm) as usize;
                 let rs2 = self.get(data.rs2 as usize);
-                match data.funct3 {
-                    0 => memory.store_byte(rs1, rs2),     // sb
-                    1 => memory.store_halfword(rs1, rs2), // sh
-                    2 => memory.store_word(rs1, rs2),     // sw
 
-                    _ => return None,
+                let bus = self.bus();
+                match data.funct3 {
+                    0 => bus.store(rs1, 8, rs2 as u32),  // sb
+                    1 => bus.store(rs1, 16, rs2 as u32), // sh
+                    2 => bus.store(rs1, 32, rs2 as u32), // sw
+
+                    _ => return EResult::NotFound,
+                }
+            }
+            OPCODE_SYSTEM => {
+                let data = TypeSystem::decode(ins);
+                let funct12 = data.imm;
+                match (funct12, data.funct3) {
+                    (0, 0) => todo!("ecall"),  // ecall
+                    (1, 0) => todo!("ebreak"), // ebreak
+
+                    _ => return EResult::NotFound,
+                }
+            }
+            OPCODE_MISCMEM => {
+                let data = TypeMiscMem::decode(ins);
+                let fm = data.imm >> 27;
+                let pi = (data.imm >> 26) & 1;
+                let po = (data.imm >> 25) & 1;
+                let pr = (data.imm >> 24) & 1;
+                let pw = (data.imm >> 23) & 1;
+                let si = (data.imm >> 22) & 1;
+                let so = (data.imm >> 21) & 1;
+                let sr = (data.imm >> 20) & 1;
+                let sw = (data.imm >> 19) & 1;
+                match data.funct3 {
+                    0 => {
+                        if fm == 8
+                            && ((pi << 3) | (po << 2) | (pr << 1) | pw) == 3
+                            && ((si << 3) | (so << 2) | (sr << 1) | sw) == 3
+                        {
+                            todo!("fence.tso"); // fence.tso
+                        } else if fm == 0
+                            && ((pi << 3) | (po << 2) | (pr << 1) | pw) == 1
+                            && ((si << 3) | (so << 2) | (sr << 1) | sw) == 0
+                            && data.rs1 == 0
+                        {
+                            todo!("pause"); // pause
+                        } else {
+                            todo!("fence"); // fence
+                        }
+                    }
+
+                    _ => return EResult::NotFound,
                 }
             }
 
-            _ => return None,
+            _ => return EResult::NotFound,
         }
 
-        Some(())
+        EResult::Found
     }
 }

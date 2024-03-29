@@ -1,36 +1,35 @@
+use rv32i::RV32I;
 use rvcore::{
     ins::{IType, OPCODE_MASK},
-    Extension, Volatile,
+    EResult, Extension, Volatile,
 };
 
 const OPCODE_SYSTEM: u32 = 0b00011111;
 type TypeSystem = IType;
 
 pub struct RVZICSR {
-    registers: [u64; 64], // 4096 1-bit registers
+    registers: [u32; 4096], // 4096 registers
 }
 
-impl Volatile<bool> for RVZICSR {
+impl Volatile<u32> for RVZICSR {
     /// Sets the bit in register `index` to `value`
-    fn set(&mut self, index: usize, value: bool) {
-        let outer = index / 64;
-        let inner = 63 - index % 64;
-        self.registers[outer] ^= (value as u64) << inner;
+    fn set(&mut self, index: usize, value: u32) {
+        self.registers[index] = value;
     }
 
     /// Gets the bit in register `index`
-    fn get(&self, index: usize) -> bool {
-        let outer = index / 64;
-        let inner = 63 - index % 64;
-        (self.registers[outer] >> inner) & 1 == 1
+    fn get(&self, index: usize) -> u32 {
+        self.registers[index]
     }
 }
 
-impl Extension<()> for RVZICSR {
-    fn execute(&mut self, ins: u32, _: &mut ()) -> Option<()> {
+impl Extension<RV32I> for RVZICSR {
+    fn execute(&mut self, ins: u32, base: &mut RV32I) -> EResult {
         match ins & OPCODE_MASK {
             OPCODE_SYSTEM => {
                 let ins = TypeSystem::decode(ins);
+                let csr = ins.imm as usize;
+
                 match ins.funct3 {
                     1 => {
                         // csrrw
@@ -57,12 +56,12 @@ impl Extension<()> for RVZICSR {
                         todo!();
                     }
 
-                    _ => return None,
+                    _ => return EResult::NotFound,
                 }
             }
-            _ => return None,
+            _ => return EResult::NotFound,
         }
 
-        Some(())
+        EResult::Found
     }
 }

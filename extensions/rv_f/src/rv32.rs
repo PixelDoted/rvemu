@@ -1,40 +1,34 @@
 use rv32i::RV32I;
-use rvcore::{ins::OPCODE_MASK, Extension, Memory, Volatile};
+use rvcore::{ins::OPCODE_MASK, EResult, Extension, Volatile};
 
 use crate::{TypeLoadF, TypeOpFp, TypeStoreF, OPCODE_LOADF, OPCODE_OPFP, OPCODE_STOREF};
-
-pub struct RV32FData<'a> {
-    pub base: &'a mut RV32I,
-    pub memory: &'a mut Memory,
-}
 
 #[derive(Default)]
 pub struct RV32F {
     registers: [f32; 32],
 }
 
-impl<'a> Extension<RV32FData<'a>> for RV32F {
-    fn execute(&mut self, ins: u32, data: &mut RV32FData<'a>) -> Option<()> {
+impl Extension<RV32I> for RV32F {
+    fn execute(&mut self, ins: u32, data: &mut RV32I) -> EResult {
         match ins & OPCODE_MASK {
             OPCODE_LOADF => {
                 let ins = TypeLoadF::decode(ins);
                 if ins.funct3 != 2 {
-                    return None;
+                    return EResult::NotFound;
                 }
 
                 let rs1 = (self.get(ins.rs1 as usize) as i32 + ins.imm) as usize;
-                let value = data.memory.load_word(rs1) as f32;
+                let value = data.bus().load(rs1, 32) as f32;
                 self.set(ins.rd as usize, value);
             }
             OPCODE_STOREF => {
                 let ins = TypeStoreF::decode(ins);
                 if ins.funct3 != 2 {
-                    return None;
+                    return EResult::NotFound;
                 }
 
                 let rs1 = (self.get(ins.rs1 as usize) as i32 + ins.imm) as usize;
-                data.memory
-                    .store_word(rs1, self.get(ins.rs2 as usize) as i32);
+                data.bus().store(rs1, 32, self.get(ins.rs2 as usize) as u32);
             }
             OPCODE_OPFP => {
                 let ins = TypeOpFp::decode(ins);
@@ -42,7 +36,7 @@ impl<'a> Extension<RV32FData<'a>> for RV32F {
                 let fmt = ins.funct7 & 0b11;
                 let rm = ins.funct3;
                 if fmt != 0 {
-                    return None;
+                    return EResult::NotFound;
                 }
 
                 match funct5 {
@@ -55,7 +49,7 @@ impl<'a> Extension<RV32FData<'a>> for RV32F {
                             // fsqrt.s
                             todo!()
                         } else {
-                            return None;
+                            return EResult::NotFound;
                         }
                     }
                     4 => {
@@ -69,7 +63,7 @@ impl<'a> Extension<RV32FData<'a>> for RV32F {
                             //fsgnjx.s
                             todo!()
                         } else {
-                            return None;
+                            return EResult::NotFound;
                         }
                     }
                     5 => {
@@ -80,7 +74,7 @@ impl<'a> Extension<RV32FData<'a>> for RV32F {
                             // fmax.s
                             todo!()
                         } else {
-                            return None;
+                            return EResult::NotFound;
                         }
                     }
                     24 => {
@@ -91,7 +85,7 @@ impl<'a> Extension<RV32FData<'a>> for RV32F {
                             // rcvt.wu.s
                             todo!()
                         } else {
-                            return None;
+                            return EResult::NotFound;
                         }
                     }
                     28 => {
@@ -102,7 +96,7 @@ impl<'a> Extension<RV32FData<'a>> for RV32F {
                             // fclass.s
                             todo!()
                         } else {
-                            return None;
+                            return EResult::NotFound;
                         }
                     }
                     20 => {
@@ -116,7 +110,7 @@ impl<'a> Extension<RV32FData<'a>> for RV32F {
                             // fle.s
                             todo!()
                         } else {
-                            return None;
+                            return EResult::NotFound;
                         }
                     }
                     26 => {
@@ -127,7 +121,7 @@ impl<'a> Extension<RV32FData<'a>> for RV32F {
                             // fcvt.s.wu
                             todo!()
                         } else {
-                            return None;
+                            return EResult::NotFound;
                         }
                     }
                     30 => {
@@ -135,18 +129,18 @@ impl<'a> Extension<RV32FData<'a>> for RV32F {
                             // fmv.w.x
                             todo!()
                         } else {
-                            return None;
+                            return EResult::NotFound;
                         }
                     }
 
-                    _ => return None,
+                    _ => return EResult::NotFound,
                 }
             }
 
-            _ => return None,
+            _ => return EResult::NotFound,
         }
 
-        Some(())
+        EResult::Found
     }
 }
 

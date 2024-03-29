@@ -5,6 +5,7 @@ A risc-v emulator
 `rv32i`: `fence` `ecall` `ebreak`  
 `rv_f`  
 `rv_zicsr`  
+`rv_zifencei`  
 
 ## References
 https://github.com/riscv/riscv-opcodes  

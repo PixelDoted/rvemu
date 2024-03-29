@@ -1,13 +1,13 @@
 use rv32i::RV32I;
 use rvcore::{
     ins::{TypeOp, OPCODE_MASK, OPCODE_OP},
-    Extension, Volatile,
+    EResult, Extension, Volatile,
 };
 
 pub struct RV32M;
 
 impl Extension<RV32I> for RV32M {
-    fn execute<'a>(&mut self, ins: u32, base: &mut RV32I) -> Option<()> {
+    fn execute<'a>(&mut self, ins: u32, base: &mut RV32I) -> EResult {
         match ins & OPCODE_MASK {
             OPCODE_OP => {
                 let ins = TypeOp::decode(ins);
@@ -22,15 +22,15 @@ impl Extension<RV32I> for RV32M {
                     (1, 6) => rs1 % rs2,                                    // rem
                     (1, 7) => ((rs1 as u32) % (rs2 as u32)) as i32,         // remu
 
-                    _ => return None,
+                    _ => return EResult::NotFound,
                 };
 
                 base.set(ins.rd as usize, value);
             }
 
-            _ => return None,
+            _ => return EResult::NotFound,
         }
 
-        Some(())
+        EResult::Found
     }
 }

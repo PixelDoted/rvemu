@@ -1,6 +1,6 @@
 mod rv32;
 
-pub use rv32::{RV32FData, RV32F};
+pub use rv32::RV32F;
 use rvcore::ins::{IType, RType, SType};
 
 const OPCODE_LOADF: u32 = 0b0000111;
