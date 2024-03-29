@@ -44,5 +44,6 @@ pub trait Volatile<T> {
 pub enum EResult {
     NotFound,
     Found,
-    Environment(()),
+    ECall,
+    EBreak,
 }

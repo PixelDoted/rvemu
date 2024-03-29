@@ -27,30 +27,46 @@ fn main() {
 
         println!("execute");
 
+        let (mut ecall, mut ebreak) = (false, false);
+
         // RV_I
-        let result = base.execute(instruction);
-        match result {
-            EResult::Environment(_) => todo!(),
-            EResult::Found => continue,
-            EResult::NotFound => (),
+        if !(ecall || ebreak) {
+            let result = base.execute(instruction);
+            match result {
+                EResult::ECall => ecall = true,
+                EResult::EBreak => ebreak = true,
+                EResult::Found => continue,
+                EResult::NotFound => (),
+            }
         }
 
         // RV_M
-        let result = rv_m.execute(instruction, &mut base);
-        match result {
-            EResult::Environment(_) => todo!(),
-            EResult::Found => continue,
-            EResult::NotFound => (),
+        if !(ecall || ebreak) {
+            let result = rv_m.execute(instruction, &mut base);
+            match result {
+                EResult::ECall => ecall = true,
+                EResult::EBreak => ebreak = true,
+                EResult::Found => continue,
+                EResult::NotFound => (),
+            }
         }
 
         // RV_F
-        let result = rv_f.execute(instruction, &mut base);
-        match result {
-            EResult::Environment(_) => todo!(),
-            EResult::Found => continue,
-            EResult::NotFound => (),
+        if !(ecall || ebreak) {
+            let result = rv_f.execute(instruction, &mut base);
+            match result {
+                EResult::ECall => ecall = true,
+                EResult::EBreak => ebreak = true,
+                EResult::Found => continue,
+                EResult::NotFound => (),
+            }
         }
 
-        eprintln!("instruction not supported");
+        // Execution Environment
+        match (ecall, ebreak) {
+            (true, false) => todo!("Handle `ecall`"),
+            (false, true) => todo!("Handle `ebreak`"),
+            _ => eprintln!("instruction not supported"),
+        }
     }
 }

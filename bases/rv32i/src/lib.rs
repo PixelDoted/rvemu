@@ -172,8 +172,8 @@ impl Base<i32> for RV32I {
                 let data = TypeSystem::decode(ins);
                 let funct12 = data.imm;
                 match (funct12, data.funct3) {
-                    (0, 0) => todo!("ecall"),  // ecall
-                    (1, 0) => todo!("ebreak"), // ebreak
+                    (0, 0) => return EResult::ECall,  // ecall
+                    (1, 0) => return EResult::EBreak, // ebreak
 
                     _ => return EResult::NotFound,
                 }
