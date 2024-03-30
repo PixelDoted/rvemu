@@ -33,6 +33,16 @@ impl RV32I {
     pub fn bus(&mut self) -> &mut Bus {
         &mut self.bus
     }
+
+    /// DEBUG
+    pub fn bus_ref(&self) -> &Bus {
+        &self.bus
+    }
+
+    /// DEBUG
+    pub fn pc(&self) -> &i32 {
+        &self.pc
+    }
 }
 
 impl Volatile<i32> for RV32I {
@@ -60,6 +70,8 @@ impl Base<i32> for RV32I {
     // ---- Execution ----
     fn execute(&mut self, ins: u32) -> EResult {
         match ins & OPCODE_MASK {
+            0 => return EResult::NotFound, // If this isn't here `OPCODE_SYSTEM` is matched instead
+
             OPCODE_OPIMM => {
                 let data = TypeOpImm::decode(ins);
                 let rs1 = self.get(data.rs1 as usize);

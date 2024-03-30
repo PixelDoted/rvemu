@@ -10,3 +10,6 @@ rvcore = { path = "../../rvcore" }
 rv32i = { path = "../../bases/rv32i" }
 rv_m = { path = "../../extensions/rv_m" }
 rv_f = { path = "../../extensions/rv_f" }
+ratatui = "0.26.1"
+crossterm = "0.27.0"
+env_logger = "0.11.3"

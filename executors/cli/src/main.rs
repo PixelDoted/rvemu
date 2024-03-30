@@ -1,72 +1,112 @@
+mod instruction;
+mod ui;
+
+use rv_f::RV32F;
+use rv_m::RV32M;
+use std::error::Error;
+use ui::UserInterface;
+
 use rv32i::RV32I;
 use rvcore::{
     bus::{Bus, DRAM_ADDR},
     Base, DRam, EResult, Extension,
 };
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
+    env_logger::init();
+
+    // ---- Setup Emulator ----
     let bus = Bus::new(DRam::new(1024 * 1024));
-    let mut base = RV32I::new(bus);
+    let mut rv_base = RV32I::new(bus);
 
     let mut rv_m = rv_m::RV32M;
     let mut rv_f = rv_f::RV32F::default();
 
     {
-        let bus = base.bus();
+        let bus = rv_base.bus();
         bus.store(DRAM_ADDR, 32, 0x00130293u32); // addi x5, x6, 1
         bus.store(4 + DRAM_ADDR, 32, 0x00128313u32); // addi x6, x5, 1
-        bus.store(8 + DRAM_ADDR, 32, 0xff1ff06fu32); // jal x0, -8
+        bus.store(8 + DRAM_ADDR, 32, 0x00100073u32); // ebreak
+                                                     //bus.store(12 + DRAM_ADDR, 32, 0xfe9ff06fu32); // jal x0, -12
     }
+
+    // ---- Setup Ratatui ----
+    let mut interface = UserInterface::init()?;
 
     loop {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        println!("---- Debug ----\n{:?}\n---- Debug ----", base);
+        interface.render(&rv_base)?;
 
-        println!("fetch");
-        let instruction = base.fetch() as u32;
-
-        println!("execute");
-
-        let (mut ecall, mut ebreak) = (false, false);
-
-        // RV_I
-        if !(ecall || ebreak) {
-            let result = base.execute(instruction);
-            match result {
-                EResult::ECall => ecall = true,
-                EResult::EBreak => ebreak = true,
-                EResult::Found => continue,
-                EResult::NotFound => (),
+        match interface.event(&rv_base)? {
+            ui::UIEvent::Nothing => (),
+            ui::UIEvent::Tick => {
+                interface.tick_event(tick(&mut rv_base, &mut rv_m, &mut rv_f));
             }
-        }
-
-        // RV_M
-        if !(ecall || ebreak) {
-            let result = rv_m.execute(instruction, &mut base);
-            match result {
-                EResult::ECall => ecall = true,
-                EResult::EBreak => ebreak = true,
-                EResult::Found => continue,
-                EResult::NotFound => (),
+            ui::UIEvent::Exit => {
+                drop(interface);
+                break;
             }
-        }
-
-        // RV_F
-        if !(ecall || ebreak) {
-            let result = rv_f.execute(instruction, &mut base);
-            match result {
-                EResult::ECall => ecall = true,
-                EResult::EBreak => ebreak = true,
-                EResult::Found => continue,
-                EResult::NotFound => (),
-            }
-        }
-
-        // Execution Environment
-        match (ecall, ebreak) {
-            (true, false) => todo!("Handle `ecall`"),
-            (false, true) => todo!("Handle `ebreak`"),
-            _ => eprintln!("instruction not supported"),
         }
     }
+
+    Ok(())
+}
+
+fn tick(base: &mut RV32I, rv_m: &mut RV32M, rv_f: &mut RV32F) -> TickResult {
+    //println!("---- Debug ----\n{:?}\n---- Debug ----", base);
+
+    //println!("fetch");
+    let instruction = base.fetch() as u32;
+
+    //println!("execute");
+
+    let (mut ecall, mut ebreak) = (false, false);
+
+    // RV_I
+    if !(ecall || ebreak) {
+        let result = base.execute(instruction);
+        match result {
+            EResult::ECall => ecall = true,
+            EResult::EBreak => ebreak = true,
+            EResult::Found => return TickResult::Nothing,
+            EResult::NotFound => (),
+        }
+    }
+
+    // RV_M
+    if !(ecall || ebreak) {
+        let result = rv_m.execute(instruction, base);
+        match result {
+            EResult::ECall => ecall = true,
+            EResult::EBreak => ebreak = true,
+            EResult::Found => return TickResult::Nothing,
+            EResult::NotFound => (),
+        }
+    }
+
+    // RV_F
+    if !(ecall || ebreak) {
+        let result = rv_f.execute(instruction, base);
+        match result {
+            EResult::ECall => ecall = true,
+            EResult::EBreak => ebreak = true,
+            EResult::Found => return TickResult::Nothing,
+            EResult::NotFound => (),
+        }
+    }
+
+    // Execution Environment
+    match (ecall, ebreak) {
+        (true, false) => TickResult::ECall,
+        (false, true) => TickResult::EBreak,
+        _ => {
+            //eprintln!("instruction not supported");
+            TickResult::Nothing
+        }
+    }
+}
+
+pub enum TickResult {
+    Nothing,
+    ECall,
+    EBreak,
 }
