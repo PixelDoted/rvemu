@@ -11,3 +11,6 @@ A risc-v emulator
 https://github.com/riscv/riscv-opcodes  
 https://en.wikipedia.org/wiki/RISC-V  
 https://riscv.org/technical/specifications/  
+
+## Tools
+https://luplab.gitlab.io/rvcodecjs

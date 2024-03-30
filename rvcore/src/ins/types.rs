@@ -20,6 +20,14 @@ impl RType {
             rd: ((ins >> 7) & 0b11111) as u8,
         }
     }
+
+    pub fn encode(&self) -> u32 {
+        ((self.funct7 as u32) << 25)
+            | ((self.rs2 as u32) << 20)
+            | ((self.rs1 as u32) << 15)
+            | ((self.funct3 as u32) << 12)
+            | ((self.rd as u32) << 7)
+    }
 }
 
 // ---- I-Type ----
@@ -42,6 +50,13 @@ impl IType {
             rd: ((ins >> 7) & 0b11111) as u8,
         }
     }
+
+    pub fn encode(&self) -> u32 {
+        ((self.imm as u32) << 20)
+            | ((self.rs1 as u32) << 15)
+            | ((self.funct3 as u32) << 12)
+            | ((self.rd as u32) << 7)
+    }
 }
 
 // ---- U-Type ----
@@ -59,6 +74,10 @@ impl UType {
             imm: sign_extend(imm31_12, 20),
             rd: ((ins >> 7) & 0b11111) as u8,
         }
+    }
+
+    pub fn encode(&self) -> u32 {
+        self.imm as u32 | ((self.rd as u32) << 7)
     }
 }
 
@@ -82,6 +101,16 @@ impl SType {
             rs1: ((ins >> 15) & 0b11111) as u8,
             funct3: ((ins >> 12) & 0b111) as u8,
         }
+    }
+
+    pub fn encode(&self) -> u32 {
+        let imm11_5 = (self.imm & (0b111111 << 5)) << 20;
+        let imm4_0 = (self.imm & 0b11111) << 7;
+        imm4_0 as u32
+            | ((self.funct3 as u32) << 12)
+            | ((self.rs1 as u32) << 15)
+            | ((self.rs2 as u32) << 20)
+            | imm11_5 as u32
     }
 }
 
@@ -108,6 +137,21 @@ impl BType {
             funct3: ((ins >> 12) & 0b111) as u8,
         }
     }
+
+    pub fn encode(&self) -> u32 {
+        let imm12 = (self.imm & (0b1 << 12)) << 19;
+        let imm10_5 = (self.imm & (0b111111 << 5)) << 20;
+        let imm4_1 = (self.imm & (0b1111 << 1)) << 7;
+        let imm11 = (self.imm & (0b1 << 1)) >> 4;
+
+        imm11 as u32
+            | imm4_1 as u32
+            | ((self.funct3 as u32) << 12)
+            | ((self.rs1 as u32) << 15)
+            | ((self.rs2 as u32) << 20)
+            | imm10_5 as u32
+            | imm12 as u32
+    }
 }
 
 // ---- J-Type ----
@@ -125,8 +169,17 @@ impl JType {
         let imm19_12 = ins & (0b11111111 << 12);
 
         Self {
-            imm: sign_extend(imm10_1 | imm11 | imm19_12 | imm20, 19),
+            imm: sign_extend(imm10_1 | imm11 | imm19_12 | imm20, 20),
             rd: ((ins >> 7) & 0b11111) as u8,
         }
+    }
+
+    pub fn encode(&self) -> u32 {
+        let imm20 = (self.imm & (0b1 << 20)) << 11;
+        let imm10_1 = (self.imm & (0b1111111111 << 1)) << 20;
+        let imm11 = (self.imm & (0b1 << 11)) << 9;
+        let imm19_12 = self.imm & (0b11111111 << 12);
+
+        ((self.rd as u32) << 7) | imm19_12 as u32 | imm11 as u32 | imm10_1 as u32 | imm20 as u32
     }
 }

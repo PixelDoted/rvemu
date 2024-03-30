@@ -11,12 +11,12 @@ use crossterm::{
 use ratatui::{
     backend::CrosstermBackend,
     prelude::*,
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
     Terminal,
 };
 use rvcore::Volatile;
 
-use crate::{instruction::decode_instruction, TickResult};
+use crate::{instruction::{decode_instruction, encode_instruction}, TickResult};
 
 pub enum UIEvent {
     Nothing,
@@ -24,14 +24,21 @@ pub enum UIEvent {
     Exit,
 }
 
+pub struct EditInfo {
+    text: String,
+    index: usize,
+    is_memory: bool,
+}
+
 pub struct UserInterface {
     terminal: Terminal<CrosstermBackend<Stdout>>,
 
+    core_hz: f32,
     continuous: bool,
     stop_at_breakpoint: bool,
     message: Option<String>,
 
-    typed_number: i32,
+    edit: Option<EditInfo>,
 
     cursor: (i32, [i32; 2]),
     registers_scroll: usize,
@@ -48,11 +55,12 @@ impl UserInterface {
         Ok(Self {
             terminal,
 
+            core_hz: 10.0,
             continuous: false,
             stop_at_breakpoint: true,
             message: None,
 
-            typed_number: 0,
+            edit: None,
 
             cursor: (0, [0; 2]),
             registers_scroll: 0,
@@ -92,9 +100,9 @@ impl UserInterface {
                     if self.cursor.1[0] > height
                         && self.registers_scroll < 31usize.saturating_sub(height as usize)
                     {
-                        self.registers_scroll += (self.cursor.1[0] / height).abs() as usize;
+                        self.registers_scroll += 1;
                     } else if self.cursor.1[0] < 0 && self.registers_scroll > 0 {
-                        self.registers_scroll -= (self.cursor.1[0] / height).abs() as usize;
+                        self.registers_scroll -= 1;
                     }
 
                     self.cursor.1[0] = self.cursor.1[0].clamp(0, height.min(31));
@@ -136,12 +144,9 @@ impl UserInterface {
 
                 if self.cursor.0 == 1 {
                     if self.cursor.1[1] > height {
-                        self.memory_scroll +=
-                            (self.cursor.1[1] / height).abs() as usize;
+                        self.memory_scroll += 1;
                     } else if self.cursor.1[1] < 0 && self.memory_scroll > 0 {
-                        self.memory_scroll = self.memory_scroll.saturating_sub(
-                            (self.cursor.1[1] / height).abs() as usize,
-                        );
+                        self.memory_scroll -= 1;
                     }
 
                     self.cursor.1[1] = self.cursor.1[1].clamp(0, height);
@@ -193,81 +198,117 @@ impl UserInterface {
             frame.render_widget(registers, sections[0]);
             frame.render_widget(memory, sections[1]);
             frame.render_widget(instructions, sections[2]);
+
+            if let Some(info) = &self.edit {
+                let popup_block = Block::default().title("Edit value").borders(Borders::ALL).style(Style::default().bg(Color::DarkGray));
+
+                let x = 40;
+                let layout = Layout::vertical([Constraint::Fill(1), Constraint::Length(3), Constraint::Fill(1)]).split(area);
+                let layout = Layout::horizontal([Constraint::Fill(1), Constraint::Percentage(x), Constraint::Fill(1)]).split(layout[1])[1];
+
+                let widget = Paragraph::new(info.text.clone()).block(popup_block);
+                Clear.render(layout, frame.buffer_mut());
+                frame.render_widget(widget, layout);
+                frame.set_cursor(layout.x + 1 + info.text.len() as u16, layout.y + 1);
+            }
         })?;
 
         Ok(())
     }
 
-    pub fn event(&mut self, rv_base: &rv32i::RV32I) -> Result<UIEvent, Box<dyn Error>> {
-        if event::poll(std::time::Duration::from_millis(16))? {
+    pub fn event(&mut self, rv_base: &mut rv32i::RV32I) -> Result<UIEvent, Box<dyn Error>> {
+        let timeout = 1.0 / if self.continuous {
+            self.core_hz
+        } else {
+            10.0
+        };
+        
+        if event::poll(std::time::Duration::from_secs_f32(timeout))? {
             match event::read()? {
-                event::Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
-                    KeyCode::Char('q') => return Ok(UIEvent::Exit),
-                    KeyCode::Char('c') if key.modifiers.intersects(KeyModifiers::CONTROL) => {
-                        return Ok(UIEvent::Exit);
-                    }
+                event::Event::Key(key) if key.kind == KeyEventKind::Press => match &mut self.edit {
+                    Some(info) => {
+                        match key.code {
+                            KeyCode::Char(char) => {
+                                info.text.push(char);
+                            }
+                            KeyCode::Backspace => {
+                                info.text.pop();
+                            }
 
-                    KeyCode::Char(' ') => {
-                        self.continuous = !self.continuous;
-                    }
-                    KeyCode::Char('s') => {
-                        self.continuous = false;
-                        return Ok(UIEvent::Tick);
-                    }
-                    KeyCode::Char('b') => {
-                        self.stop_at_breakpoint = !self.stop_at_breakpoint;
-                    }
+                            KeyCode::Esc => {
+                                self.edit = None;
+                            }
+                            KeyCode::Enter => {
+                                let number = if let Ok(number) = info.text.parse::<u32>() {
+                                    number
+                                } else if let Some(ins) = encode_instruction(&info.text) {
+                                    ins
+                                } else {
+                                    return Ok(UIEvent::Nothing);
+                                };
+                                
+                                if info.is_memory {
+                                    rv_base.bus().dram.store(info.index * 4, 32, number as u32);
+                                } else {
+                                    rv_base.set(info.index, number as i32);
+                                }
 
-                    KeyCode::Up => {
-                        self.cursor.1[self.cursor.0 as usize] =
-                            self.cursor.1[self.cursor.0 as usize].saturating_sub(self.typed_number);
-                        self.typed_number = 1;
+                                self.edit = None;
+                            }
+                            _ => (),
+                        }
                     }
-                    KeyCode::Down => {
-                        self.cursor.1[self.cursor.0 as usize] =
-                            self.cursor.1[self.cursor.0 as usize].saturating_add(self.typed_number);
-                        self.typed_number = 1;
-                    }
-                    KeyCode::Left => {
-                        self.cursor.0 -= 1;
-                    }
-                    KeyCode::Right => {
-                        self.cursor.0 += 1;
-                    }
+                    None => {
+                        match key.code {
+                            KeyCode::Char('q') => return Ok(UIEvent::Exit),
+                            KeyCode::Char('c') if key.modifiers.intersects(KeyModifiers::CONTROL) => {
+                                return Ok(UIEvent::Exit);
+                            }
 
-                    KeyCode::Char('1') => {
-                        self.type_number(1);
-                    }
-                    KeyCode::Char('2') => {
-                        self.type_number(2);
-                    }
-                    KeyCode::Char('3') => {
-                        self.type_number(3);
-                    }
-                    KeyCode::Char('4') => {
-                        self.type_number(4);
-                    }
-                    KeyCode::Char('5') => {
-                        self.type_number(5);
-                    }
-                    KeyCode::Char('6') => {
-                        self.type_number(6);
-                    }
-                    KeyCode::Char('7') => {
-                        self.type_number(7);
-                    }
-                    KeyCode::Char('8') => {
-                        self.type_number(8);
-                    }
-                    KeyCode::Char('9') => {
-                        self.type_number(9);
-                    }
-                    KeyCode::Char('0') => {
-                        self.type_number(0);
-                    }
+                            KeyCode::Char(' ') => {
+                                self.continuous = !self.continuous;
+                            }
+                            KeyCode::Char('s') => {
+                                self.continuous = false;
+                                return Ok(UIEvent::Tick);
+                            }
+                            KeyCode::Char('b') => {
+                                self.stop_at_breakpoint = !self.stop_at_breakpoint;
+                            }
 
-                    _ => (),
+                            KeyCode::Up => {
+                                self.cursor.1[self.cursor.0 as usize] -= 1;
+                            }
+                            KeyCode::Down => {
+                                self.cursor.1[self.cursor.0 as usize] += 1;
+                            }
+                            KeyCode::Left => if self.cursor.0 > 0 {
+                                self.cursor.0 -= 1;
+                            }
+                            KeyCode::Right => if self.cursor.0 < 1 {
+                                self.cursor.0 += 1;
+                            }
+
+                            KeyCode::Enter => {
+                                let index = if self.cursor.0 == 1 {
+                                    self.memory_scroll + self.cursor.1[self.cursor.0 as usize] as usize
+                                } else {
+                                    self.registers_scroll + self.cursor.1[self.cursor.0 as usize] as usize
+                                };
+                                let text = if self.cursor.0 == 1 {
+                                    rv_base.bus().dram.load(index * 4, 32).to_string()
+                                } else {
+                                    rv_base.get(index).to_string()
+                                };
+                                self.edit = Some(EditInfo { text, index, is_memory: self.cursor.0 == 1 });
+                            }
+
+                            _ => (),
+                        }
+                    }
+                    
                 },
+            
 
                 _ => (),
             }
@@ -294,12 +335,6 @@ impl UserInterface {
                 self.message = Some("Breakpoint".into());
             }
         }
-    }
-}
-
-impl UserInterface {
-    fn type_number(&mut self, number: i32) {
-        self.typed_number = self.typed_number.saturating_mul(10).saturating_add(number);
     }
 }
 

@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         bus.store(DRAM_ADDR, 32, 0x00130293u32); // addi x5, x6, 1
         bus.store(4 + DRAM_ADDR, 32, 0x00128313u32); // addi x6, x5, 1
         bus.store(8 + DRAM_ADDR, 32, 0x00100073u32); // ebreak
-                                                     //bus.store(12 + DRAM_ADDR, 32, 0xfe9ff06fu32); // jal x0, -12
+        bus.store(12 + DRAM_ADDR, 32, 0xff5ff0efu32); // jal x0, -12
     }
 
     // ---- Setup Ratatui ----
@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     loop {
         interface.render(&rv_base)?;
 
-        match interface.event(&rv_base)? {
+        match interface.event(&mut rv_base)? {
             ui::UIEvent::Nothing => (),
             ui::UIEvent::Tick => {
                 interface.tick_event(tick(&mut rv_base, &mut rv_m, &mut rv_f));

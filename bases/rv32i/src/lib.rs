@@ -122,11 +122,13 @@ impl Base<i32> for RV32I {
             OPCODE_JAL => {
                 let data = TypeJal::decode(ins);
                 self.set(data.rd as usize, self.pc);
-                self.pc = self.pc - 4 + (data.imm >> 1);
+                self.pc = self.pc - 4 + data.imm;
             }
             OPCODE_JALR => {
                 let data = TypeJalR::decode(ins);
-                let rs1 = self.get(data.rs1 as usize) + data.imm;
+                let mut rs1 = self.get(data.rs1 as usize) + data.imm;
+                rs1 = (rs1 >> 1) << 1; // set least-significant bit to `0`
+
                 self.set(data.rd as usize, self.pc);
                 self.pc = self.pc - 4 + rs1;
             }
