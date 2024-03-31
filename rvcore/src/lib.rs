@@ -14,6 +14,7 @@ pub use dram::DRam;
 
 pub trait Base<T>: Volatile<T> {
     /// Fetches the current `program counter`
+    #[must_use]
     fn fetch(&mut self) -> T;
 
     /// Attempts to execute an instruction  
