@@ -24,11 +24,11 @@ pub trait Base<T>: Volatile<T> {
 
 // ---- Extension ----
 
-pub trait Extension<D> {
+pub trait Extension<B> {
     /// Attempts to execute an instruction
     /// Returns None if the instruction isn't supported
     #[must_use]
-    fn execute(&mut self, ins: u32, data: &mut D) -> EResult;
+    fn execute(&mut self, ins: u32, base: &mut B) -> EResult;
 }
 
 // ---- Volatile ----
