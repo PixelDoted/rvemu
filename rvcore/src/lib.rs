@@ -23,7 +23,6 @@ pub trait Base<T>: Volatile<T> {
 }
 
 // ---- Extension ----
-
 pub trait Extension<B> {
     /// Attempts to execute an instruction
     /// Returns None if the instruction isn't supported

@@ -1,5 +1,3 @@
-use std::convert::Infallible;
-
 use rv32i::RV32I;
 use rvcore::{ins::OPCODE_MASK, EResult, Extension, Volatile};
 
